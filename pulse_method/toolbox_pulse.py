@@ -278,36 +278,42 @@ class thermograms:
         
         return EOFs, s
         
-    def TSR(self,data,polynomial_order=7):
+    def TSR(self, data, polynomial_order=7, return_reconstructed=True):
         """
-        Thermographic Signal Reconstruction (TSR) via logarithmic polynomial fitting.
+        Enhanced Thermographic Signal Reconstruction (TSR) with vectorized reconstruction
         
         Args:
-            data: 3D array (N_frames, H, W) - Thermal sequence.
-            polynomial_order: Order of the polynomial (e.g., 2 for quadratic).
+            data: 3D array (N_frames, H, W) - Thermal sequence
+            polynomial_order: Order of the polynomial fit (default=7)
+            return_reconstructed: Whether to compute reconstructed sequence (default=True)
             
         Returns:
-            coefficient_matrix: Shape (polynomial_order + 1, H, W).
-                Each [k, i, j] contains the k-th coefficient for pixel (i, j).
-                Order: [highest_order, ..., constant_term].
+            coefficient_matrix: Shape (polynomial_order + 1, H, W) - Polynomial coefficients
+            reconstructed: Shape (N_frames, H, W) - Reconstructed thermal decays (if return_reconstructed=True)
+            
+        References:
+            Shepard (2003) DOI:10.3166/qirt.10.85-96
         """
         N, H, W = data.shape
-        x = np.arange(1, N + 1)  # Time vector (1, 2, ..., N)
+        x = np.arange(1, N + 1)
         x_log = np.log(x)
         
-        # Avoid log(0) by adding a small offset to data
-        data_log = np.log(data + 1e-10)  # Shape (N, H, W)
+        # Logarithmic transformation with numerical stability
+        data_log = np.log(data + np.finfo(float).eps)
         
-        # Reshape for vectorized fitting (combine spatial dimensions)
-        data_log_flat = data_log.reshape(N, H * W)  # Shape (N, H*W)
-        
-        # Fit polynomial for all pixels at once
-        coefficients_flat = np.polyfit(x_log, data_log_flat, polynomial_order)  # Shape (order+1, H*W)
-        
-        # Reshape back to (order+1, H, W)
+        # Vectorized polynomial fitting
+        data_log_flat = data_log.reshape(N, -1)
+        coefficients_flat = np.polyfit(x_log, data_log_flat, polynomial_order)
         coefficient_matrix = coefficients_flat.reshape(polynomial_order + 1, H, W)
         
-        return coefficient_matrix
+        if not return_reconstructed:
+            return coefficient_matrix
+        
+        # Vectorized reconstruction using Vandermonde matrix
+        vander = np.vander(x_log, N=polynomial_order+1, increasing=True)
+        reconstructed = np.exp(np.dot(vander, coefficients_flat).reshape(N, H, W))
+        
+        return coefficient_matrix, reconstructed
 
     def HOS(self,data):
         """
