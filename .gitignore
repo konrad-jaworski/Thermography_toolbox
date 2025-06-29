@@ -1,0 +1,32 @@
+# Compiled Python files
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+pulse_thermography/
+venv/
+.venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Data files
+*.bin
+*.npy
+*.h5
+*.mat
+
+# Training outputs
+models/
+results/
+logs/
+
+# IDE files
+.vscode/
+.idea/
+
+# System files
+.DS_Store
