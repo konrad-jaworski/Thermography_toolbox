@@ -30,3 +30,6 @@ logs/
 
 # System files
 .DS_Store
+
+# VS workspace files
+*.code-workspace
