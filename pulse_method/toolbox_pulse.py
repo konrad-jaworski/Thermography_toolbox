@@ -9,7 +9,7 @@ from sklearn.preprocessing import MinMaxScaler
 from scipy.signal import savgol_filter
 import torch
 import pywt
-from scipy.stats import median_absolute_deviation as mad
+from scipy.stats import median_abs_deviation as mad
 
 class thermograms:
     """
