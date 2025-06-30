@@ -8,6 +8,8 @@ from scipy.stats import skew, kurtosis
 from sklearn.preprocessing import MinMaxScaler
 from scipy.signal import savgol_filter
 import torch
+import pywt
+from scipy.stats import median_absolute_deviation as mad
 
 class thermograms:
     """
@@ -24,6 +26,8 @@ class thermograms:
 
     Filtering methods:
         - Savitzki-Golay filtering (SavGol)
+        - Denoising using wavelet filter (WaveFil)
+        - Binarization of thermography frame (binarize_mask)
 
     Data loading methods:
         - Formulating thermography sequence from .bin files (loadfrombinfiles)
@@ -453,3 +457,47 @@ class thermograms:
             binary_mask = np.where(norm_frame >= threshold_value, 1, 0).astype(np.uint8)
         
         return binary_mask
+    
+    def WaveFil(self, data, wavelet='sym5', level=None, mode='soft'):
+        """
+        Wavelet denoising for 3D thermography sequences (N_frames, H, W)
+        
+        Args:
+            data: 3D numpy array (N, H, W)
+            wavelet: Wavelet type ('sym5', 'db4', etc.)
+            level: Decomposition level (auto-detected if None)
+            mode: Thresholding mode ('soft', 'hard')
+            
+        Returns:
+            Denoised 3D array with same shape as input
+        """
+        # Validate input
+        if data.ndim != 3:
+            raise ValueError("Input must be 3D (N_frames, H, W)")
+            
+        # Auto-detect decomposition level
+        if level is None:
+            level = int(np.log2(data.shape[0])) - 3
+            
+        # Process each spatial position independently
+        denoised = np.empty_like(data)
+        for i in range(data.shape[1]):  # Height
+            for j in range(data.shape[2]):  # Width
+                signal = data[:, i, j]
+                
+                # Wavelet decomposition
+                coeffs = pywt.wavedec(signal, wavelet, level=level)
+                
+                # Noise estimation (MAD of detail coefficients)
+                sigma = mad(coeffs[-1])
+                
+                # Universal threshold
+                threshold = sigma * np.sqrt(2 * np.log(len(signal)))
+                
+                # Thresholding
+                coeffs[1:] = [pywt.threshold(c, threshold, mode=mode) for c in coeffs[1:]]
+                
+                # Reconstruction
+                denoised[:, i, j] = pywt.waverec(coeffs, wavelet)
+                
+        return denoised
