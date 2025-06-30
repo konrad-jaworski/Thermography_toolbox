@@ -28,6 +28,7 @@ class thermograms:
         - Savitzki-Golay filtering (SavGol)
         - Denoising using wavelet filter (WaveFil)
         - Binarization of thermography frame (binarize_mask)
+        - Mean average filter (MeanFil)
 
     Data loading methods:
         - Formulating thermography sequence from .bin files (loadfrombinfiles)
@@ -501,3 +502,35 @@ class thermograms:
                 denoised[:, i, j] = pywt.waverec(coeffs, wavelet)
                 
         return denoised
+    
+    def MeanFil(self, data, window_size=5, axis=0):
+        """
+        Sliding window mean filter for 3D thermography data.
+        
+        Args:
+            data: Input array (N_frames, H, W)
+            window_size: Size of the averaging window (odd integer)
+            axis: Axis to filter along (default=0 for temporal filtering)
+            
+        Returns:
+            Filtered array with same shape as input
+        """
+        if window_size % 2 == 0:
+            raise ValueError("Window size must be odd")
+        
+        pad_width = [(0,0)] * data.ndim
+        pad_width[axis] = (window_size//2, window_size//2)
+        
+        # Reflective padding to handle edges
+        padded = np.pad(data, pad_width, mode='reflect')
+        
+        # Create sliding window view
+        strides = padded.strides + (padded.strides[axis],)
+        shape = padded.shape[:axis] + (padded.shape[axis] - window_size + 1,) + padded.shape[axis+1:] + (window_size,)
+        windows = np.lib.stride_tricks.as_strided(
+            padded,
+            shape=shape,
+            strides=strides
+        )
+        
+        return np.mean(windows, axis=-1)
