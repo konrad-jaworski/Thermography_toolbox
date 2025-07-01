@@ -7,9 +7,11 @@ from scipy.linalg import svd,eig,inv
 from scipy.stats import skew, kurtosis
 from sklearn.preprocessing import MinMaxScaler
 from scipy.signal import savgol_filter
-import torch
 import pywt
 from scipy.stats import median_abs_deviation as mad
+import torch
+import torch.fft
+import torch.nn.functional as F
 
 class thermograms:
     """
@@ -254,6 +256,33 @@ class thermograms:
         
         return phasegram, magnitude  # Or just return phasegram if magnitude isn't needed
     
+
+    def PPT_torch(self, data, mode_num=15):
+        """
+        Pulse Phase Thermography (PPT) via FFT-based phase analysis (PyTorch version).
+        
+        Args:
+            data: 3D tensor (N_frames, H, W) - Thermal sequence.
+            mode_num: Number of FFT modes to return (default=15).
+            
+        Returns:
+            phasegram: Shape (mode_num, H, W) - Phase spectra of first `mode_num` frequencies.
+            magnitude: (Optional) Magnitude spectra for signal energy analysis.
+        """
+        # Ensure input is a tensor
+        if not isinstance(data, torch.Tensor):
+            data = torch.tensor(data, dtype=torch.float32)
+        
+        # FFT along time axis (axis=0)
+        fft_result = torch.fft.fft(data, dim=0)  # (N_frames, H, W)
+        
+        # Extract phase and magnitude
+        phasegram = torch.angle(fft_result[:mode_num])  # (mode_num, H, W)
+        magnitude = torch.abs(fft_result[:mode_num])    # Optional: magnitude spectra
+        
+        return phasegram, magnitude
+
+    
     def PCT(self,data, n_components=None):
         """
         Principal Component Thermography (PCT) via SVD.
@@ -277,6 +306,50 @@ class thermograms:
         
         # Reshape EOFs and limit components
         EOFs = U.T.reshape(-1, H, W)  # (N, H, W)
+        if n_components is not None:
+            EOFs = EOFs[:n_components]
+            s = s[:n_components]
+        
+        return EOFs, s
+    
+    def PCT_torch(self, data, n_components=None, fast_svd=True):
+        """
+        Principal Component Thermography (PCT) via SVD (PyTorch version).
+        
+        Args:
+            data: 3D tensor (N_frames, H, W) or array - Thermal sequence.
+            n_components: Number of principal components to return. If None, returns all.
+            fast_svd: If True, uses randomized SVD (faster but approximate). Default: True.
+            
+        Returns:
+            EOFs: Empirical Orthogonal Functions (n_components, H, W).
+            s: Singular values (n_components,).
+        """
+        # Input handling
+        if not isinstance(data, torch.Tensor):
+            data = torch.tensor(data, dtype=torch.float32)
+        
+        N, H, W = data.shape
+        
+        # Reshape with memory optimization
+        data_flat = data.reshape(N, -1).T.contiguous()  # (H*W, N)
+        
+        # Standardization with zero-std protection
+        mean = torch.mean(data_flat, dim=0)
+        std = torch.std(data_flat, dim=0)
+        std[std == 0] = 1.0
+        data_flat = (data_flat - mean) / std
+        
+        # SVD computation
+        with torch.no_grad():  # Disable gradients if not needed
+            if fast_svd:
+                q = min(n_components or 10, min(data_flat.shape))
+                U, s, V = torch.svd_lowrank(data_flat, q=q)
+            else:
+                U, s, V = torch.linalg.svd(data_flat, full_matrices=False)
+        
+        # Reshape and truncate
+        EOFs = U.T.reshape(-1, H, W)
         if n_components is not None:
             EOFs = EOFs[:n_components]
             s = s[:n_components]
@@ -315,6 +388,50 @@ class thermograms:
 
         return coefficient_matrix
     
+
+    def TSR_torch(self, data, polynomial_order=7):
+        """
+        Thermographic Signal Reconstruction (TSR) via logarithmic polynomial fitting (PyTorch version).
+        
+        Args:
+            data: 3D tensor (N_frames, H, W) - Thermal sequence.
+            polynomial_order: Order of the polynomial (default=7).
+            
+        Returns:
+            coefficient_matrix: Shape (polynomial_order + 1, H, W).
+                Each [k, i, j] contains the k-th coefficient for pixel (i, j).
+                Order: [highest_order, ..., constant_term].
+        """
+        # Ensure input is a tensor
+        if not isinstance(data, torch.Tensor):
+            data = torch.tensor(data, dtype=torch.float32)
+        
+        N, H, W = data.shape
+        
+        # Time vector and logarithmic terms
+        x = torch.arange(1, N + 1, device=data.device)  # (N,)
+        x_log = torch.log(x)
+        
+        # Avoid log(0) with small offset
+        data_log = torch.log(data + 1e-10)  # (N, H, W)
+        
+        # Reshape for batched solving (combine spatial dimensions)
+        data_log_flat = data_log.reshape(N, H * W)  # (N, H*W)
+        
+        # Construct Vandermonde matrix for polynomial basis
+        X = torch.stack([x_log ** (polynomial_order - i) for i in range(polynomial_order + 1)], dim=1)  # (N, order+1)
+        
+        # Solve least squares: X^T X coeffs = X^T y
+        XtX = X.T @ X  # (order+1, order+1)
+        Xty = X.T @ data_log_flat  # (order+1, H*W)
+        coefficients_flat = torch.linalg.solve(XtX, Xty)  # (order+1, H*W)
+        
+        # Reshape to (order+1, H, W)
+        coefficient_matrix = coefficients_flat.reshape(polynomial_order + 1, H, W)
+        
+        return coefficient_matrix
+
+
     def HOS(self,data):
         """
         Compute Higher-Order Statistics (Skewness, Kurtosis, 5th Moment) for each pixel.
@@ -341,6 +458,52 @@ class thermograms:
         
         # Stack results
         HOS_matrix = np.stack([skew_image, kurtosis_image, fifth_moment], axis=0)
+        
+        return HOS_matrix
+    
+    def HOS_torch(self, data):
+        """
+        Compute Higher-Order Statistics (Skewness, Kurtosis, 5th Moment) for each pixel (PyTorch version).
+        
+        Args:
+            data: 3D tensor (N_frames, H, W) - Thermal sequence.
+                
+        Returns:
+            HOS_matrix: Shape (3, H, W) where:
+                [0,:,:] = Skewness
+                [1,:,:] = Kurtosis
+                [2,:,:] = 5th standardized central moment
+        """
+        # Ensure input is a tensor
+        if not isinstance(data, torch.Tensor):
+            data = torch.tensor(data, dtype=torch.float32)
+        
+        N, H, W = data.shape
+        data_flat = data.reshape(N, -1)  # (N, H*W)
+        
+        # Compute mean and std (with zero-std protection)
+        mean = torch.mean(data_flat, dim=0)
+        std = torch.std(data_flat, dim=0)
+        std[std == 0] = 1.0  # Avoid division by zero
+        
+        # Standardized data
+        standardized = (data_flat - mean) / std
+        
+        # Skewness (3rd standardized moment)
+        skewness = torch.mean(standardized ** 3, dim=0)
+        
+        # Kurtosis (4th standardized moment, excess=False)
+        kurtosis = torch.mean(standardized ** 4, dim=0)
+        
+        # 5th standardized central moment
+        fifth_moment = torch.mean(standardized ** 5, dim=0)
+        
+        # Reshape and stack results
+        HOS_matrix = torch.stack([
+            skewness.reshape(H, W),
+            kurtosis.reshape(H, W),
+            fifth_moment.reshape(H, W)
+        ], dim=0)
         
         return HOS_matrix
     
@@ -386,6 +549,59 @@ class thermograms:
         
         return DMD_modes, eig_vals
 
+
+    def DMD_torch(self, data, truncation=None):
+        """
+        Dynamic Mode Decomposition (DMD) for thermographic sequences (PyTorch version).
+        
+        Args:
+            data: 3D tensor (N_frames, H, W) - Thermal sequence.
+            truncation: Rank for SVD truncation. If None, uses full rank.
+            
+        Returns:
+            dmd_modes: Shape (truncation, H, W) - DMD modes (spatial patterns).
+            eig_vals: Eigenvalues of the reduced operator.
+        """
+        # Ensure input is a tensor
+        if not isinstance(data, torch.Tensor):
+            data = torch.tensor(data, dtype=torch.float32)
+        
+        N, H, W = data.shape
+        
+        # Reshape and transpose to (H*W, N_frames)
+        dmd_ready = data.reshape(N, -1).T  # (H*W, N)
+        
+        # Normalize (MinMax scales each pixel across time)
+        min_vals = dmd_ready.min(dim=1, keepdim=True)[0]
+        max_vals = dmd_ready.max(dim=1, keepdim=True)[0]
+        dmd_ready = (dmd_ready - min_vals) / (max_vals - min_vals + 1e-10)  # Avoid division by zero
+        
+        # Create time-shifted matrices X (t) and X' (t+1)
+        X = dmd_ready[:, :-1]  # (H*W, N-1)
+        X_p = dmd_ready[:, 1:]  # (H*W, N-1)
+        
+        # Truncated SVD of X
+        U, s, Vh = torch.linalg.svd(X, full_matrices=False)
+        if truncation is not None:
+            U = U[:, :truncation]
+            s = s[:truncation]
+            Vh = Vh[:truncation, :]
+        
+        # Build reduced operator A_tilde
+        Sigma_inv = torch.diag(1.0 / s)
+        A_tilde = U.T @ X_p @ Vh.T @ Sigma_inv  # (truncation, truncation)
+        
+        # Eigen decomposition of A_tilde
+        eig_vals, eig_vecs = torch.linalg.eig(A_tilde)
+        
+        # Reconstruct DMD modes (project back to full space)
+        DMD_modes = X_p @ Vh.T @ Sigma_inv @ eig_vecs  # (H*W, truncation)
+        DMD_modes = DMD_modes.T.reshape(-1, H, W)  # (truncation, H, W)
+        
+        return DMD_modes, eig_vals
+
+
+
     #--------------------------------------------------------------------------------Filtering methods-----------------------------------------------------------------------------
 
     def SavGol(self,data, window_length, polyorder, axis=0):
@@ -409,7 +625,7 @@ class thermograms:
 
         # Vectorized filtering
         return savgol_filter(data, window_length, polyorder, axis=axis)
-    
+
     def binarize_mask(self, frame, threshold_value=0.5):
         """
         Creates a binary mask from a thermography frame (supports both NumPy and PyTorch).
