@@ -569,10 +569,11 @@ class thermograms:
         
         N, H, W = data.shape
         
-        # Reshape and normalize
+        # Reshape and normalize (min-max scaling with epsilon)
         dmd_ready = data.reshape(N, -1).T  # (H*W, N)
-        dmd_ready = (dmd_ready - dmd_ready.min(dim=1, keepdim=True)[0]) / \
-                (dmd_ready.max(dim=1, keepdim=True)[0] - dmd_ready.min(dim=1, keepdim=True)[0] + 1e-10)
+        min_vals = dmd_ready.min(dim=1, keepdim=True)[0]
+        max_vals = dmd_ready.max(dim=1, keepdim=True)[0]
+        dmd_ready = (dmd_ready - min_vals) / (max_vals - min_vals + 1e-10)
         
         # Time-shifted matrices
         X = dmd_ready[:, :-1]  # (H*W, N-1)
@@ -581,26 +582,28 @@ class thermograms:
         # Truncated SVD
         U, s, Vh = torch.linalg.svd(X, full_matrices=False)
         if truncation is not None:
-            truncation = min(truncation, s.shape[0])
+            truncation = min(truncation, s.shape[0])  # Safety check
             U = U[:, :truncation]
             s = s[:truncation]
             Vh = Vh[:truncation, :]
         
-        # Build reduced operator
-        Sigma_inv = torch.diag(1.0 / s).to(device)
-        A_tilde = U.T @ X_p @ Vh.T @ Sigma_inv
+        # Build reduced operator (A_tilde)
+        Sigma_inv = torch.diag(1.0 / (s + 1e-10)).to(device)  # Regularized inverse
+        A_tilde = U.T @ X_p @ Vh.T @ Sigma_inv  # (truncation, truncation)
         
         # Eigen decomposition (returns complex values)
         eig_vals, eig_vecs = torch.linalg.eig(A_tilde)
         
-        # Reconstruct DMD modes with proper dtype handling
-        DMD_modes = (X_p.to(torch.complex64) @ 
-                    Vh.T.to(torch.complex64) @ 
-                    Sigma_inv.to(torch.complex64) @ 
-                    eig_vecs)
+        # Convert all components to complex64 for reconstruction
+        X_p = X_p.to(torch.complex64)
+        Vh = Vh.to(torch.complex64)
+        Sigma_inv = Sigma_inv.to(torch.complex64)
         
-        # Reshape and return
-        return DMD_modes.T.reshape(-1, H, W), eig_vals
+        # Reconstruct DMD modes (all operations now in complex64)
+        DMD_modes = X_p @ Vh.T @ Sigma_inv @ eig_vecs  # (H*W, truncation)
+        DMD_modes = DMD_modes.T.reshape(-1, H, W)  # (truncation, H, W)
+        
+        return DMD_modes, eig_vals
 
     #--------------------------------------------------------------------------------Filtering methods-----------------------------------------------------------------------------
 
