@@ -562,45 +562,45 @@ class thermograms:
             dmd_modes: Shape (truncation, H, W) - DMD modes (spatial patterns).
             eig_vals: Eigenvalues of the reduced operator.
         """
-        # Ensure input is a tensor
+        # Input validation and device handling
         if not isinstance(data, torch.Tensor):
             data = torch.tensor(data, dtype=torch.float32)
+        device = data.device
         
         N, H, W = data.shape
         
-        # Reshape and transpose to (H*W, N_frames)
+        # Reshape and normalize
         dmd_ready = data.reshape(N, -1).T  # (H*W, N)
+        dmd_ready = (dmd_ready - dmd_ready.min(dim=1, keepdim=True)[0]) / \
+                (dmd_ready.max(dim=1, keepdim=True)[0] - dmd_ready.min(dim=1, keepdim=True)[0] + 1e-10)
         
-        # Normalize (MinMax scales each pixel across time)
-        min_vals = dmd_ready.min(dim=1, keepdim=True)[0]
-        max_vals = dmd_ready.max(dim=1, keepdim=True)[0]
-        dmd_ready = (dmd_ready - min_vals) / (max_vals - min_vals + 1e-10)  # Avoid division by zero
-        
-        # Create time-shifted matrices X (t) and X' (t+1)
+        # Time-shifted matrices
         X = dmd_ready[:, :-1]  # (H*W, N-1)
         X_p = dmd_ready[:, 1:]  # (H*W, N-1)
         
-        # Truncated SVD of X
+        # Truncated SVD
         U, s, Vh = torch.linalg.svd(X, full_matrices=False)
         if truncation is not None:
+            truncation = min(truncation, s.shape[0])
             U = U[:, :truncation]
             s = s[:truncation]
             Vh = Vh[:truncation, :]
         
-        # Build reduced operator A_tilde
-        Sigma_inv = torch.diag(1.0 / s)
-        A_tilde = U.T @ X_p @ Vh.T @ Sigma_inv  # (truncation, truncation)
+        # Build reduced operator
+        Sigma_inv = torch.diag(1.0 / s).to(device)
+        A_tilde = U.T @ X_p @ Vh.T @ Sigma_inv
         
-        # Eigen decomposition of A_tilde
+        # Eigen decomposition (returns complex values)
         eig_vals, eig_vecs = torch.linalg.eig(A_tilde)
         
-        # Reconstruct DMD modes (project back to full space)
-        DMD_modes = X_p @ Vh.T @ Sigma_inv @ eig_vecs  # (H*W, truncation)
-        DMD_modes = DMD_modes.T.reshape(-1, H, W)  # (truncation, H, W)
+        # Reconstruct DMD modes with proper dtype handling
+        DMD_modes = (X_p.to(torch.complex64) @ 
+                    Vh.T.to(torch.complex64) @ 
+                    Sigma_inv.to(torch.complex64) @ 
+                    eig_vecs)
         
-        return DMD_modes, eig_vals
-
-
+        # Reshape and return
+        return DMD_modes.T.reshape(-1, H, W), eig_vals
 
     #--------------------------------------------------------------------------------Filtering methods-----------------------------------------------------------------------------
 
