@@ -62,7 +62,7 @@ Cheng, L. (2023). *Dynamic Mode Decomposition in Thermography*. International Co
 ## Usage Example
 
 ```python
-from toolbox_pulse import thermograms
+from pulse_method.toolbox_pulse import thermograms
 
 # Initialize with camera resolution
 analyzer = thermograms(height=512, width=640)
