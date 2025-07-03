@@ -12,7 +12,7 @@ Python package implementing advanced thermographic non-destructive evaluation (N
 ## Installation
 
 ```bash
-pip install numpy scipy scikit-learn torch
+pip install git+https://github.com/konrad-jaworski/Thermography_toolbox.git
 ```
 
 Simply copy the `toolbox_pulse.py` file into your project.
