@@ -49,7 +49,7 @@ HOS_matrix = HOS(data)  # [skewness, kurtosis, 5th moment]
 ```
 **Reference**:  
 Madruga F.J. (2010). *Higher-Order Statistics in Infrared Thermography*. NDT&E International.  
-[DOI:10.1016/j.ndteint.2015.04.003]((https://www.sciencedirect.com/science/article/pii/S0963869510000873))
+[DOI:10.1016/j.ndteint.2015.04.003](https://www.sciencedirect.com/science/article/pii/S0963869510000873)
 
 ### 5. Dynamic Mode Decomposition (DMD)
 ```python
