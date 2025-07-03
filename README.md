@@ -48,7 +48,7 @@ Balageas, D. (2014). *Thermographic Signal Reconstruction*. Biocybernetics and B
 HOS_matrix = HOS(data)  # [skewness, kurtosis, 5th moment]
 ```
 **Reference**:  
-Madruga F.J. (2010). *Higher-Order Statistics in Infrared Thermography*. NDT&E International.  
+Madruga, F.J. (2010). *Higher-Order Statistics in Infrared Thermography*. NDT&E International.  
 [DOI:10.1016/j.ndteint.2015.04.003](https://www.sciencedirect.com/science/article/pii/S0963869510000873)
 
 ### 5. Dynamic Mode Decomposition (DMD)
@@ -56,8 +56,8 @@ Madruga F.J. (2010). *Higher-Order Statistics in Infrared Thermography*. NDT&E I
 modes, eigenvalues = DMD(data, truncation=10)
 ```
 **Reference**:  
-Schmid, P. (2010). *Dynamic Mode Decomposition*. JFM.  
-[DOI:10.1017/jfm.2010.192](https://doi.org/10.1017/jfm.2010.192)
+Cheng, L. (2023). *Dynamic Mode Decomposition in Thermography*. International Conference on Industrial Artificial Intelligence.  
+[DOI:10.1109/IAI59504.2023.10327539](https://ieeexplore.ieee.org/document/10327539)
 
 ## Usage Example
 
