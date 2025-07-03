@@ -24,7 +24,7 @@ Simply copy the `toolbox_pulse.py` file into your project.
 phasegram, magnitude = PPT(data, mode_num=15)
 ```
 **Reference**:  
-Maldague, X. (1996). *Journal of Applied Physics*.  
+Maldague, X. (1996). *Pulse phase infrared thermography*. Journal of Applied Physic.
 [DOI:10.1063/1.362662](https://pubs.aip.org/aip/jap/article/79/5/2694/496162/Pulse-phase-infrared-thermography)
 
 ### 2. Principal Component Thermography (PCT)
@@ -40,16 +40,16 @@ Rajic, N. (2002). *Principal Component Thermography*. Defence Science and Techno
 coefficients = TSR(data, polynomial_order=4)
 ```
 **Reference**:  
-Shepard, S. (2003). *Thermographic Signal Reconstruction*. QIRT Journal.  
-[DOI:10.3166/qirt.10.85-96](https://doi.org/10.3166/qirt.10.85-96)
+Balageas, D. (2014). *Thermographic Signal Reconstruction*. Biocybernetics and Biomedical Engineering.  
+[DOI: 10.1016/j.bbe.2014.07.002](https://www.sciencedirect.com/science/article/pii/S0208521614000643?via%3Dihub)
 
 ### 4. Higher-Order Statistics (HOS)
 ```python
 HOS_matrix = HOS(data)  # [skewness, kurtosis, 5th moment]
 ```
 **Reference**:  
-Omar, M. (2015). *Higher-Order Statistics in Infrared Thermography*. NDT&E International.  
-[DOI:10.1016/j.ndteint.2015.04.003](https://doi.org/10.1016/j.ndteint.2015.04.003)
+Madruga F.J. (2010). *Higher-Order Statistics in Infrared Thermography*. NDT&E International.  
+[DOI:10.1016/j.ndteint.2015.04.003]([https://doi.org/10.1016/j.ndteint.2015.04.003](https://www.sciencedirect.com/science/article/pii/S0963869510000873))
 
 ### 5. Dynamic Mode Decomposition (DMD)
 ```python
