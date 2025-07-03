@@ -15,8 +15,6 @@ Python package implementing advanced thermographic non-destructive evaluation (N
 pip install git+https://github.com/konrad-jaworski/Thermography_toolbox.git
 ```
 
-Simply copy the `toolbox_pulse.py` file into your project.
-
 ## Implemented Methods
 
 ### 1. Pulse Phase Thermography (PPT)
