@@ -33,7 +33,7 @@ EOFs, singular_values = PCT(data, n_components=5)
 ```
 **Reference**:  
 Rajic, N. (2002). *Principal Component Thermography*. Defence Science and Technology Organisation.  
-[DSTO-TR-1291](https://apps.dtic.mil/sti/citations/ADA406088)
+[ADA406088](https://www.sciencedirect.com/science/article/pii/S0263822302001617)
 
 ### 3. Thermographic Signal Reconstruction (TSR)
 ```python
