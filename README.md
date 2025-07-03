@@ -24,8 +24,8 @@ Simply copy the `toolbox_pulse.py` file into your project.
 phasegram, magnitude = PPT(data, mode_num=15)
 ```
 **Reference**:  
-Maldague, X. (2001). *Theory and Practice of Infrared Thermography for NDT*. Wiley.  
-[DOI:10.1002/9781118706239](https://doi.org/10.1002/9781118706239)
+Maldague, X. (1996). *Journal of Applied Physics*.  
+[DOI:10.1063/1.362662](https://pubs.aip.org/aip/jap/article/79/5/2694/496162/Pulse-phase-infrared-thermography)
 
 ### 2. Principal Component Thermography (PCT)
 ```python
